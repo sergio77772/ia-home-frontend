@@ -147,11 +147,20 @@ function App() {
       });
     } else {
       // Nueva tarea desde cero
-      addLog(`> ${input}`, true);
+      
+      // Si el usuario seleccionó un agente ANTES de darle a enter, forzamos al orquestador a usar SOLO a ese agente.
+      let finalPrompt = input;
+      if (selectedAgent) {
+        finalPrompt = `[DIRECTIVA ESTRICTA]: Ejecuta ÚNICAMENTE la siguiente tarea delegándola al agente ${selectedAgent.toUpperCase()} y luego finaliza inmediatamente el proceso sin llamar a nadie más. Tarea: "${input}"`;
+        addLog(`> [Solicitud Directa a ${selectedAgent}]: ${input}`, true);
+      } else {
+        addLog(`> ${input}`, true);
+      }
+
       // Generamos un nuevo session ID para el nuevo flujo
       sessionIdRef.current = Math.random().toString(36).substring(7);
       socketRef.current.emit('run_orchestrator', { 
-        prompt: input,
+        prompt: finalPrompt,
         conversationId: sessionIdRef.current
       });
       setIsWorking(true);
