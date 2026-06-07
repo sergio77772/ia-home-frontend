@@ -9,11 +9,28 @@ interface LogMessage {
   isSystem?: boolean;
 }
 
+interface AgentState {
+  name: string;
+  icon: string;
+  status: 'IDLE' | 'WORKING' | 'DONE';
+  lastMessage: string;
+}
+
+const INITIAL_AGENTS: AgentState[] = [
+  { name: 'Architect', icon: '🏛️', status: 'IDLE', lastMessage: '' },
+  { name: 'Coder', icon: '💻', status: 'IDLE', lastMessage: '' },
+  { name: 'Reviewer', icon: '🔍', status: 'IDLE', lastMessage: '' },
+  { name: 'Tester', icon: '🧪', status: 'IDLE', lastMessage: '' },
+  { name: 'DevOps', icon: '🐙', status: 'IDLE', lastMessage: '' }
+];
+
 function App() {
   const [logs, setLogs] = useState<LogMessage[]>([]);
   const [input, setInput] = useState('');
   const [isConnected, setIsConnected] = useState(false);
   const [isWorking, setIsWorking] = useState(false);
+  const [agents, setAgents] = useState<AgentState[]>(INITIAL_AGENTS);
+  
   const socketRef = useRef<Socket | null>(null);
   const logsEndRef = useRef<HTMLDivElement>(null);
 
@@ -29,12 +46,59 @@ function App() {
     socketRef.current.on('disconnect', () => {
       setIsConnected(false);
       setIsWorking(false);
+      setAgents(INITIAL_AGENTS);
       addLog('Conexión perdida. Intentando reconectar...', true);
     });
 
     // Escuchar logs de los agentes
-    socketRef.current.on('agent_log', (logStr: string) => {
+    socketRef.current.on('agent_log', (data: any) => {
+      // El backend envía { message, meta, timestamp }
+      const logStr = typeof data === 'string' ? data : (data.message || '');
       addLog(logStr);
+
+      // Actualizar estado de agentes basado en el log
+      setAgents(prevAgents => {
+        const newAgents = [...prevAgents];
+        
+        // Si el planner delegó, marcamos al agente como WORKING
+        const delegateMatch = logStr.match(/\[Planner\] 🧠 -> 🤖 Delegando a (\w+)/i);
+        if (delegateMatch) {
+          const name = delegateMatch[1];
+          const agent = newAgents.find(a => a.name.toLowerCase() === name.toLowerCase());
+          if (agent) {
+            agent.status = 'WORKING';
+            agent.lastMessage = 'Esperando directivas...';
+          }
+        }
+
+        // Si el planner dice que finalizó, marcamos como DONE
+        const finishedMatch = logStr.match(/\[Planner\] 🤖 -> 🧠 (\w+) finalizó/i);
+        if (finishedMatch) {
+          const name = finishedMatch[1];
+          const agent = newAgents.find(a => a.name.toLowerCase() === name.toLowerCase());
+          if (agent) {
+            agent.status = 'DONE';
+            agent.lastMessage = 'Tarea completada.';
+          }
+        }
+
+        // Si un agente habla directamente, actualizamos su mensaje y estado
+        const talkMatch = logStr.match(/\[(\w+)\] (.+)/);
+        if (talkMatch) {
+          const name = talkMatch[1];
+          const msg = talkMatch[2];
+          if (name !== 'Planner') {
+            const agent = newAgents.find(a => a.name.toLowerCase() === name.toLowerCase());
+            if (agent) {
+              agent.status = 'WORKING';
+              agent.lastMessage = msg;
+            }
+          }
+        }
+
+        return newAgents;
+      });
+
       // Heurística simple para saber si terminaron
       if (logStr.includes('CODER_COMPLETADO') || logStr.includes('DEVOPS_COMPLETADO') || logStr.includes('REVISION_APROBADA')) {
         setIsWorking(false);
@@ -62,6 +126,7 @@ function App() {
     addLog(`> ${input}`, true);
     socketRef.current.emit('run_orchestrator', { prompt: input });
     setIsWorking(true);
+    setAgents(INITIAL_AGENTS);
     setInput('');
   };
 
@@ -79,6 +144,19 @@ function App() {
           <div className="status-dot" style={{ backgroundColor: isWorking ? 'var(--neon-green)' : '#555', boxShadow: isWorking ? '0 0 8px var(--neon-green)' : 'none', animation: isWorking ? 'pulse 1.5s infinite alternate' : 'none' }}></div>
           {isWorking ? 'WORKING' : (isConnected ? 'IDLE' : 'OFFLINE')}
         </div>
+      </div>
+
+      <div className="agents-panel">
+        {agents.map(agent => (
+          <div key={agent.name} className={`agent-card ${agent.status.toLowerCase()}`}>
+            <div className="agent-header">
+              <span className="agent-icon">{agent.icon}</span>
+              <span className="agent-name">{agent.name}</span>
+              <span className="agent-status-label">{agent.status}</span>
+            </div>
+            <div className="agent-message">{agent.lastMessage || 'Inactivo'}</div>
+          </div>
+        ))}
       </div>
 
       <div className="logs-container">

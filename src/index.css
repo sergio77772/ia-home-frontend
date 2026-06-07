@@ -99,6 +99,91 @@ body {
   to { opacity: 1; transform: scale(1.1); box-shadow: 0 0 12px var(--neon-green); }
 }
 
+.agents-panel {
+  display: flex;
+  gap: 1rem;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid var(--neon-green);
+  background-color: #0d0d0d;
+  overflow-x: auto;
+}
+
+.agent-card {
+  flex: 1;
+  min-width: 140px;
+  background-color: #151515;
+  border: 1px solid #333;
+  border-radius: 8px;
+  padding: 0.8rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  transition: all 0.3s ease;
+}
+
+.agent-card.working {
+  border-color: var(--neon-green);
+  box-shadow: 0 0 10px rgba(0, 255, 65, 0.15);
+}
+
+.agent-card.done {
+  border-color: #008822;
+  opacity: 0.7;
+}
+
+.agent-card.idle {
+  opacity: 0.5;
+}
+
+.agent-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  font-weight: bold;
+}
+
+.agent-icon {
+  font-size: 1.2rem;
+}
+
+.agent-name {
+  color: #fff;
+  flex: 1;
+}
+
+.agent-status-label {
+  font-size: 0.6rem;
+  padding: 0.2rem 0.4rem;
+  border-radius: 4px;
+  background-color: #333;
+  color: #aaa;
+}
+
+.agent-card.working .agent-status-label {
+  background-color: var(--neon-green);
+  color: #000;
+  box-shadow: 0 0 5px var(--neon-green);
+  animation: pulse 1s infinite alternate;
+}
+
+.agent-card.done .agent-status-label {
+  background-color: #008822;
+  color: #fff;
+}
+
+.agent-message {
+  font-size: 0.75rem;
+  color: #aaa;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.agent-card.working .agent-message {
+  color: var(--neon-green);
+}
+
 .logs-container {
   flex: 1;
   padding: 1.5rem;
