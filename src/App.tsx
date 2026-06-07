@@ -108,6 +108,16 @@ function App() {
       }
     });
 
+    socketRef.current.on('agent_result', (data: any) => {
+      addLog(`[RESULTADO FINAL]: ${data.result}`);
+      setIsWorking(false);
+    });
+
+    socketRef.current.on('agent_error', (data: any) => {
+      addLog(`[ERROR CRÍTICO]: ${data.error}`, true);
+      setIsWorking(false);
+    });
+
     return () => {
       socketRef.current?.disconnect();
     };
