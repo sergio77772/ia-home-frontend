@@ -30,7 +30,10 @@ function App() {
   const [isConnected, setIsConnected] = useState(false);
   const [isWorking, setIsWorking] = useState(false);
   const [agents, setAgents] = useState<AgentState[]>(INITIAL_AGENTS);
+  const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
   
+  // Usamos useRef para mantener un sessionId persistente sin re-renders
+  const sessionIdRef = useRef<string>(Math.random().toString(36).substring(7));
   const socketRef = useRef<Socket | null>(null);
   const logsEndRef = useRef<HTMLDivElement>(null);
 
@@ -123,10 +126,29 @@ function App() {
   const handleSend = () => {
     if (!input.trim() || !socketRef.current) return;
     
-    addLog(`> ${input}`, true);
-    socketRef.current.emit('run_orchestrator', { prompt: input });
-    setIsWorking(true);
-    setAgents(INITIAL_AGENTS);
+    if (isWorking) {
+      // Inyección en caliente para destrabar al agente seleccionado o al planner
+      const targetAgent = selectedAgent || 'Orquestador';
+      const instruction = `[INSTRUCCIÓN HUMANA PARA ${targetAgent.toUpperCase()}]: ${input}`;
+      addLog(`> ${instruction}`, true);
+      socketRef.current.emit('human_intervention', { 
+        conversationId: sessionIdRef.current, 
+        message: instruction 
+      });
+    } else {
+      // Nueva tarea desde cero
+      addLog(`> ${input}`, true);
+      // Generamos un nuevo session ID para el nuevo flujo
+      sessionIdRef.current = Math.random().toString(36).substring(7);
+      socketRef.current.emit('run_orchestrator', { 
+        prompt: input,
+        conversationId: sessionIdRef.current
+      });
+      setIsWorking(true);
+      setAgents(INITIAL_AGENTS);
+      setSelectedAgent(null);
+    }
+    
     setInput('');
   };
 
@@ -148,7 +170,12 @@ function App() {
 
       <div className="agents-panel">
         {agents.map(agent => (
-          <div key={agent.name} className={`agent-card ${agent.status.toLowerCase()}`}>
+          <div 
+            key={agent.name} 
+            className={`agent-card ${agent.status.toLowerCase()} ${selectedAgent === agent.name ? 'selected' : ''}`}
+            onClick={() => setSelectedAgent(agent.name === selectedAgent ? null : agent.name)}
+            style={{ cursor: 'pointer' }}
+          >
             <div className="agent-header">
               <span className="agent-icon">{agent.icon}</span>
               <span className="agent-name">{agent.name}</span>
@@ -175,18 +202,22 @@ function App() {
         <input 
           type="text" 
           className="prompt-input"
-          placeholder="Describe la app que quieres crear..."
+          placeholder={isWorking 
+            ? (selectedAgent ? `Intervenir y destrabar al ${selectedAgent}...` : "Dar directiva extra al Orquestador...")
+            : "Describe la app que quieres crear..."
+          }
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-          disabled={!isConnected || isWorking}
+          disabled={!isConnected}
         />
         <button 
           className="send-btn"
           onClick={handleSend}
-          disabled={!isConnected || isWorking}
+          disabled={!isConnected}
+          style={isWorking ? { borderColor: '#ff0041', color: '#ff0041', textShadow: '0 0 5px #ff0041' } : {}}
         >
-          <Send size={20} />
+          {isWorking ? 'INTERVENIR' : <Send size={20} />}
         </button>
       </div>
     </div>
