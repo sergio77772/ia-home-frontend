@@ -16,6 +16,12 @@ interface AgentState {
   lastMessage: string;
 }
 
+interface ConversationInfo {
+  id: string;
+  title: string;
+  createdAt: string;
+}
+
 const INITIAL_AGENTS: AgentState[] = [
   { name: 'Architect', icon: '🏛️', status: 'IDLE', lastMessage: '' },
   { name: 'Coder', icon: '💻', status: 'IDLE', lastMessage: '' },
@@ -32,6 +38,9 @@ function App() {
   const [agents, setAgents] = useState<AgentState[]>(INITIAL_AGENTS);
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
   
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [conversations, setConversations] = useState<ConversationInfo[]>([]);
+  
   // Usamos useRef para mantener un sessionId persistente sin re-renders
   const sessionIdRef = useRef<string>(Math.random().toString(36).substring(7));
   const socketRef = useRef<Socket | null>(null);
@@ -43,7 +52,8 @@ function App() {
 
     socketRef.current.on('connect', () => {
       setIsConnected(true);
-      addLog('Sistema conectado a la Fábrica de Software.', true);
+      addLog('Conectado a la Fábrica de Software IA.', true);
+      socketRef.current?.emit('get_all_conversations');
     });
 
     socketRef.current.on('disconnect', () => {
@@ -118,6 +128,24 @@ function App() {
       setIsWorking(false);
     });
 
+    socketRef.current.on('all_conversations', (data: { conversations: ConversationInfo[] }) => {
+      setConversations(data.conversations || []);
+    });
+
+    socketRef.current.on('conversation_history', (data: { conversationId: string, history: any[] }) => {
+      if (data.history && data.history.length > 0) {
+        setLogs([]); // Limpiamos para no mezclar
+        addLog(`=== Historial Cargado: ${data.conversationId} ===`, true);
+        data.history.forEach((msg: any) => {
+          if (msg.role === 'user') {
+            addLog(`> ${msg.content}`, true);
+          } else if (msg.role === 'assistant') {
+            addLog(msg.content);
+          }
+        });
+      }
+    });
+
     return () => {
       socketRef.current?.disconnect();
     };
@@ -146,9 +174,7 @@ function App() {
         message: instruction 
       });
     } else {
-      // Nueva tarea desde cero
-      
-      // Si el usuario seleccionó un agente ANTES de darle a enter, forzamos al orquestador a usar SOLO a ese agente.
+      // Nueva tarea desde cero o continuar sesión actual
       let finalPrompt = input;
       if (selectedAgent) {
         finalPrompt = `[DIRECTIVA ESTRICTA]: Ejecuta ÚNICAMENTE la siguiente tarea delegándola al agente ${selectedAgent.toUpperCase()} y luego finaliza inmediatamente el proceso sin llamar a nadie más. Tarea: "${input}"`;
@@ -157,8 +183,6 @@ function App() {
         addLog(`> ${input}`, true);
       }
 
-      // Generamos un nuevo session ID para el nuevo flujo
-      sessionIdRef.current = Math.random().toString(36).substring(7);
       socketRef.current.emit('run_orchestrator', { 
         prompt: finalPrompt,
         conversationId: sessionIdRef.current
@@ -171,14 +195,54 @@ function App() {
     setInput('');
   };
 
+  const startNewChat = () => {
+    sessionIdRef.current = Math.random().toString(36).substring(7);
+    setLogs([]);
+    setAgents(INITIAL_AGENTS);
+    addLog('--- Nueva Sesión Iniciada ---', true);
+  };
+
+  const loadConversation = (id: string) => {
+    sessionIdRef.current = id;
+    socketRef.current?.emit('get_conversation_history', { conversationId: id });
+    if (window.innerWidth < 768) setSidebarOpen(false); // Cierra sidebar en móvil
+  };
+
   return (
-    <div className="terminal-container">
-      <div className="terminal-header">
-        <div className="header-title">
-          <Terminal size={32} color="var(--neon-green)" />
-          <div className="title-text">
-            <span className="title-main">KODU Code</span>
-            <span className="title-sub">Sitios web y apps AI Factory</span>
+    <div className="app-layout">
+      {/* Sidebar (ChatGPT style) */}
+      <div className={`sidebar ${sidebarOpen ? 'open' : 'closed'}`}>
+        <div className="sidebar-header">
+          <h2>KODU History</h2>
+          <button className="new-chat-btn" onClick={startNewChat}>
+            + New Chat
+          </button>
+        </div>
+        <div className="conversations-list">
+          {conversations.map(conv => (
+            <div 
+              key={conv.id} 
+              className={`conv-item ${sessionIdRef.current === conv.id ? 'active' : ''}`}
+              onClick={() => loadConversation(conv.id)}
+            >
+              <div className="conv-title">{conv.title}</div>
+              <div className="conv-date">{new Date(conv.createdAt).toLocaleDateString()}</div>
+            </div>
+          ))}
+          {conversations.length === 0 && <div className="no-convs">No hay chats previos.</div>}
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="main-content">
+        <div className="top-bar">
+          <div className="logo">
+            <button className="menu-btn" onClick={() => setSidebarOpen(!sidebarOpen)}>☰</button>
+            <span className="terminal-icon"><Terminal size={24} /></span>
+            <div>
+              <h1>KODU Code</h1>
+              <p>Sitios web y apps AI Factory</p>
+            </div>
           </div>
         </div>
         <div className="status-badge" style={{ borderColor: isWorking ? 'var(--neon-green)' : '#555', color: isWorking ? 'var(--neon-green)' : '#555' }}>
