@@ -244,64 +244,64 @@ function App() {
               <p>Sitios web y apps AI Factory</p>
             </div>
           </div>
+          <div className="status-badge" style={{ borderColor: isWorking ? 'var(--neon-green)' : '#555', color: isWorking ? 'var(--neon-green)' : '#555' }}>
+            <div className="status-dot" style={{ backgroundColor: isWorking ? 'var(--neon-green)' : '#555', boxShadow: isWorking ? '0 0 8px var(--neon-green)' : 'none', animation: isWorking ? 'pulse 1.5s infinite alternate' : 'none' }}></div>
+            {isWorking ? 'WORKING' : (isConnected ? 'IDLE' : 'OFFLINE')}
+          </div>
         </div>
-        <div className="status-badge" style={{ borderColor: isWorking ? 'var(--neon-green)' : '#555', color: isWorking ? 'var(--neon-green)' : '#555' }}>
-          <div className="status-dot" style={{ backgroundColor: isWorking ? 'var(--neon-green)' : '#555', boxShadow: isWorking ? '0 0 8px var(--neon-green)' : 'none', animation: isWorking ? 'pulse 1.5s infinite alternate' : 'none' }}></div>
-          {isWorking ? 'WORKING' : (isConnected ? 'IDLE' : 'OFFLINE')}
-        </div>
-      </div>
 
-      <div className="agents-panel">
-        {agents.map(agent => (
-          <div 
-            key={agent.name} 
-            className={`agent-card ${agent.status.toLowerCase()} ${selectedAgent === agent.name ? 'selected' : ''}`}
-            onClick={() => setSelectedAgent(agent.name === selectedAgent ? null : agent.name)}
-            style={{ cursor: 'pointer' }}
-          >
-            <div className="agent-header">
-              <span className="agent-icon">{agent.icon}</span>
-              <span className="agent-name">{agent.name}</span>
-              <span className="agent-status-label">{agent.status}</span>
+        <div className="agents-panel">
+          {agents.map(agent => (
+            <div 
+              key={agent.name} 
+              className={`agent-card ${agent.status.toLowerCase()} ${selectedAgent === agent.name ? 'selected' : ''}`}
+              onClick={() => setSelectedAgent(agent.name === selectedAgent ? null : agent.name)}
+              style={{ cursor: 'pointer' }}
+            >
+              <div className="agent-header">
+                <span className="agent-icon">{agent.icon}</span>
+                <span className="agent-name">{agent.name}</span>
+                <span className="agent-status-label">{agent.status}</span>
+              </div>
+              <div className="agent-message">{agent.lastMessage || 'Inactivo'}</div>
             </div>
-            <div className="agent-message">{agent.lastMessage || 'Inactivo'}</div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
 
-      <div className="logs-container">
-        {logs.map((log, i) => (
-          <div key={i} className="log-entry">
-            <span className="log-time">[{log.time}]</span>
-            <span className={`log-content ${log.isSystem ? 'system' : ''}`}>
-              {log.content}
-            </span>
-          </div>
-        ))}
-        <div ref={logsEndRef} />
-      </div>
+        <div className="logs-container">
+          {logs.map((log, i) => (
+            <div key={i} className="log-entry">
+              <span className="log-time">[{log.time}]</span>
+              <span className={`log-content ${log.isSystem ? 'system' : ''}`}>
+                {log.content}
+              </span>
+            </div>
+          ))}
+          <div ref={logsEndRef} />
+        </div>
 
-      <div className="input-container">
-        <input 
-          type="text" 
-          className="prompt-input"
-          placeholder={isWorking 
-            ? (selectedAgent ? `Intervenir y destrabar al ${selectedAgent}...` : "Dar directiva extra al Orquestador...")
-            : "Describe la app que quieres crear..."
-          }
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-          disabled={!isConnected}
-        />
-        <button 
-          className="send-btn"
-          onClick={handleSend}
-          disabled={!isConnected}
-          style={isWorking ? { borderColor: '#ff0041', color: '#ff0041', textShadow: '0 0 5px #ff0041' } : {}}
-        >
-          {isWorking ? 'INTERVENIR' : <Send size={20} />}
-        </button>
+        <div className="input-container">
+          <input 
+            type="text" 
+            className="prompt-input"
+            placeholder={isWorking 
+              ? (selectedAgent ? `Intervenir y destrabar al ${selectedAgent}...` : "Dar directiva extra al Orquestador...")
+              : "Describe la app que quieres crear..."
+            }
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+            disabled={!isConnected}
+          />
+          <button 
+            className="send-btn"
+            onClick={handleSend}
+            disabled={!isConnected}
+            style={isWorking ? { borderColor: '#ff0041', color: '#ff0041', textShadow: '0 0 5px #ff0041' } : {}}
+          >
+            {isWorking ? 'INTERVENIR' : <Send size={20} />}
+          </button>
+        </div>
       </div>
     </div>
   );
