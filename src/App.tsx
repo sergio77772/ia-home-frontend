@@ -121,11 +121,13 @@ function App() {
     socketRef.current.on('agent_result', (data: any) => {
       addLog(`[RESULTADO FINAL]: ${data.result}`);
       setIsWorking(false);
+      socketRef.current?.emit('get_all_conversations'); // Refrescar la barra lateral
     });
 
     socketRef.current.on('agent_error', (data: any) => {
       addLog(`[ERROR CRÍTICO]: ${data.error}`, true);
       setIsWorking(false);
+      socketRef.current?.emit('get_all_conversations'); // Refrescar la barra lateral
     });
 
     socketRef.current.on('all_conversations', (data: { conversations: ConversationInfo[] }) => {
