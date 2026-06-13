@@ -38,6 +38,7 @@ function App() {
   const [agents, setAgents] = useState<AgentState[]>(INITIAL_AGENTS);
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
   
+  const [chatMode, setChatMode] = useState<'AGENTS' | 'NORMAL'>('AGENTS');
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [conversations, setConversations] = useState<ConversationInfo[]>([]);
   
@@ -166,6 +167,16 @@ function App() {
   const handleSend = () => {
     if (!input.trim() || !socketRef.current) return;
     
+    if (chatMode === 'NORMAL') {
+      addLog(`> ${input}`, true);
+      socketRef.current.emit('run_chat', { 
+        prompt: input,
+        conversationId: sessionIdRef.current
+      });
+      setInput('');
+      return;
+    }
+
     if (isWorking) {
       // Inyección en caliente para destrabar al agente seleccionado o al planner
       const targetAgent = selectedAgent || 'Orquestador';
@@ -246,39 +257,81 @@ function App() {
               <p>Sitios web y apps AI Factory</p>
             </div>
           </div>
-          <div className="status-badge" style={{ borderColor: isWorking ? 'var(--neon-green)' : '#555', color: isWorking ? 'var(--neon-green)' : '#555' }}>
-            <div className="status-dot" style={{ backgroundColor: isWorking ? 'var(--neon-green)' : '#555', boxShadow: isWorking ? '0 0 8px var(--neon-green)' : 'none', animation: isWorking ? 'pulse 1.5s infinite alternate' : 'none' }}></div>
-            {isWorking ? 'WORKING' : (isConnected ? 'IDLE' : 'OFFLINE')}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+            <div className="mode-toggle" style={{ display: 'flex', background: '#222', borderRadius: '4px', overflow: 'hidden' }}>
+              <button 
+                onClick={() => setChatMode('AGENTS')}
+                style={{ padding: '6px 12px', background: chatMode === 'AGENTS' ? 'var(--neon-green)' : 'transparent', color: chatMode === 'AGENTS' ? '#000' : '#888', border: 'none', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' }}>
+                🤖 AGENTES
+              </button>
+              <button 
+                onClick={() => setChatMode('NORMAL')}
+                style={{ padding: '6px 12px', background: chatMode === 'NORMAL' ? 'var(--neon-green)' : 'transparent', color: chatMode === 'NORMAL' ? '#000' : '#888', border: 'none', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' }}>
+                💬 CHAT NORMAL
+              </button>
+            </div>
+            <div className="status-badge" style={{ borderColor: isWorking && chatMode === 'AGENTS' ? 'var(--neon-green)' : '#555', color: isWorking && chatMode === 'AGENTS' ? 'var(--neon-green)' : '#555' }}>
+              <div className="status-dot" style={{ backgroundColor: isWorking && chatMode === 'AGENTS' ? 'var(--neon-green)' : '#555', boxShadow: isWorking && chatMode === 'AGENTS' ? '0 0 8px var(--neon-green)' : 'none', animation: isWorking && chatMode === 'AGENTS' ? 'pulse 1.5s infinite alternate' : 'none' }}></div>
+              {isWorking && chatMode === 'AGENTS' ? 'WORKING' : (isConnected ? 'IDLE' : 'OFFLINE')}
+            </div>
           </div>
         </div>
 
-        <div className="agents-panel">
-          {agents.map(agent => (
-            <div 
-              key={agent.name} 
-              className={`agent-card ${agent.status.toLowerCase()} ${selectedAgent === agent.name ? 'selected' : ''}`}
-              onClick={() => setSelectedAgent(agent.name === selectedAgent ? null : agent.name)}
-              style={{ cursor: 'pointer' }}
-            >
-              <div className="agent-header">
-                <span className="agent-icon">{agent.icon}</span>
-                <span className="agent-name">{agent.name}</span>
-                <span className="agent-status-label">{agent.status}</span>
+        {chatMode === 'AGENTS' && (
+          <div className="agents-panel">
+            {agents.map(agent => (
+              <div 
+                key={agent.name} 
+                className={`agent-card ${agent.status.toLowerCase()} ${selectedAgent === agent.name ? 'selected' : ''}`}
+                onClick={() => setSelectedAgent(agent.name === selectedAgent ? null : agent.name)}
+                style={{ cursor: 'pointer' }}
+              >
+                <div className="agent-header">
+                  <span className="agent-icon">{agent.icon}</span>
+                  <span className="agent-name">{agent.name}</span>
+                  <span className="agent-status-label">{agent.status}</span>
+                </div>
+                <div className="agent-message">{agent.lastMessage || 'Inactivo'}</div>
               </div>
-              <div className="agent-message">{agent.lastMessage || 'Inactivo'}</div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
 
         <div className="logs-container">
-          {logs.map((log, i) => (
-            <div key={i} className="log-entry">
-              <span className="log-time">[{log.time}]</span>
-              <span className={`log-content ${log.isSystem ? 'system' : ''}`}>
-                {log.content}
-              </span>
-            </div>
-          ))}
+          {logs.map((log, i) => {
+            const contentStr = typeof log.content === 'string' ? log.content : (log.content ? JSON.stringify(log.content) : '');
+            const hasZip = contentStr.includes('[ZIP_READY]');
+            let textPart = contentStr;
+            let zipPath = '';
+            
+            if (hasZip) {
+              const parts = contentStr.split('[ZIP_READY]');
+              textPart = parts[0];
+              // Toma solo la ruta (hasta el primer espacio, salto de línea o backtick)
+              zipPath = parts[1].trim().split(/[\s\n`]/)[0];
+            }
+
+            return (
+              <div key={i} className="log-entry">
+                <span className="log-time">[{log.time}]</span>
+                <span className={`log-content ${log.isSystem ? 'system' : ''}`}>
+                  {textPart}
+                  {hasZip && (
+                    <div style={{ marginTop: '8px' }}>
+                      <a 
+                        href={`https://ser-150317434723.europe-west1.run.app/orchestrator/download?path=${encodeURIComponent(zipPath)}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        style={{ color: 'var(--neon-green)', textDecoration: 'underline', fontWeight: 'bold' }}
+                      >
+                        📦 Descargar código fuente (.zip)
+                      </a>
+                    </div>
+                  )}
+                </span>
+              </div>
+            );
+          })}
           <div ref={logsEndRef} />
         </div>
 
